@@ -1,0 +1,144 @@
+name: iceberg-lab
+
+# Lab 1 — Environment Boot & First Tables
+# This stack is the shared environment for the whole bootcamp (Labs 1-4).
+#
+#   MinIO          S3-compatible object storage   -> holds the `warehouse` bucket
+#   PostgreSQL     relational database            -> `metastore` (Hive) + `source_db` (Lab 2)
+#   Hive Metastore Iceberg catalog                -> thrift://hive-metastore:9083
+#   Spark/Jupyter  compute + student notebooks    -> localhost:8888 (Jupyter), localhost:4040 (Spark UI)
+
+services:
+
+  # ---------------------------------------------------------------- MinIO ---
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # The minio image ships no curl, but it bundles the `mc` client
+      test: ["CMD-SHELL", "mc alias set health http://localhost:9000 admin password && mc ready health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # One-shot job: creates the `warehouse` bucket, then exits.
+  minio-init:
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 admin password; do sleep 2; done &&
+      mc mb --ignore-existing local/warehouse &&
+      echo 'Bucket ready: s3://warehouse'
+      "
+
+  # ----------------------------------------------------------- PostgreSQL ---
+  postgres:
+    image: postgres:16.3
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: metastore          # Hive Metastore backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates the second database (source_db) used in Lab 2:
+      - ./postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d metastore"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # -------------------------------------------------------- Hive Metastore ---
+  hive-metastore:
+    build: ./hive
+    image: iceberg-lab/hive-metastore:3.1.3
+    container_name: hive-metastore
+    platform: linux/amd64            # apache/hive:3.1.3 is amd64-only; runs via Rosetta on Apple Silicon
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+    ports:
+      - "9083:9083"                  # Thrift
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # /bin/sh in this image is dash (no /dev/tcp) — probe the thrift port with bash
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9083"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  # ------------------------------------------------------------- Trino ---
+  # Added in Lab 3: a second, independent query engine over the SAME tables.
+  # Behind a compose profile so Day 1 boots without it:
+  #   docker compose --profile lab3 up -d
+  trino:
+    image: trinodb/trino:443
+    container_name: trino
+    profiles: ["lab3"]
+    ports:
+      - "8080:8080"                  # Trino UI + JDBC/HTTP
+    volumes:
+      - ./trino/catalog/iceberg.properties:/etc/trino/catalog/iceberg.properties:ro
+    depends_on:
+      hive-metastore:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "trino", "--execute", "SELECT 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+
+  # -------------------------------------------------------- Spark + Jupyter ---
+  spark-jupyter:
+    build: .
+    image: iceberg-lab/spark-jupyter:3.5.0
+    container_name: spark-jupyter
+    environment:
+      # Credentials for Iceberg's S3FileIO (picked up from the environment)
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+    ports:
+      - "8888:8888"                  # Jupyter UI
+      - "4040:4040"                  # Spark UI (of the active session)
+    volumes:
+      # Each lab's notebooks appear as a subfolder in the Jupyter file browser
+      - ../notebooks:/home/jovyan/notebooks/lab_01
+      - ../../lab_02_data_ingestion/notebooks:/home/jovyan/notebooks/lab_02
+      - ../../lab_03_trino_and_time_travel/notebooks:/home/jovyan/notebooks/lab_03
+      - ../../lab_03_trino_and_time_travel/scripts:/home/jovyan/scripts/lab_03
+      - ../../lab_04_maintenance_and_compaction/notebooks:/home/jovyan/notebooks/lab_04
+      - ./spark-defaults.conf:/usr/local/spark/conf/spark-defaults.conf:ro
+    command: >
+      start-notebook.py
+      --IdentityProvider.token=''
+      --ServerApp.root_dir=/home/jovyan/notebooks
+    depends_on:
+      hive-metastore:
+        condition: service_healthy
+
+volumes:
+  minio-data:
+  postgres-data:
