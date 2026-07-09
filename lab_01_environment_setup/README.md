@@ -75,6 +75,19 @@ In Jupyter, open **`lab_01/Lab_01_First_Tables.ipynb`** and work through it top 
 a database and an Iceberg table, insert and query rows, and then inspect the files Iceberg wrote to
 MinIO.
 
+## Optional — run the notebooks locally (PyCharm / VS Code)
+
+If you'd rather run the notebooks against your **local** Python instead of the Jupyter server in
+the container, install the pinned Python packages from the repo root:
+
+```bash
+pip install -r ../requirements.txt
+```
+
+The pins (`pyspark==3.5.0`, `trino==0.328.0`, `pandas`) match the versions inside the container so
+behavior is identical. PySpark starts a local JVM, so you also need **Java 17** installed and
+`JAVA_HOME` set — otherwise `SparkSession…getOrCreate()` will fail with `JAVA_HOME is not set`.
+
 ## Troubleshooting
 
 | Symptom | Fix |

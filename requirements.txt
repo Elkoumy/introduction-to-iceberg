@@ -1,0 +1,17 @@
+# Python packages needed to run the lab notebooks locally (e.g. in PyCharm)
+# against the docker-compose stack in lab_01_environment_setup/docker/.
+#
+# Versions match what's installed inside the spark-jupyter container so
+# behavior is identical whether you run notebooks locally or in Jupyter at
+# http://localhost:8888.
+#
+# NOTE: PySpark runs a JVM locally, so you ALSO need Java 17 installed on
+# Windows and JAVA_HOME set. If Java is missing you'll see
+# "JAVA_HOME is not set" when creating a SparkSession.
+#
+# Install:
+#   pip install -r requirements.txt
+
+pyspark==3.5.0
+trino==0.328.0
+pandas>=2.0,<3.0
