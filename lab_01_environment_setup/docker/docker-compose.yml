@@ -88,14 +88,13 @@ services:
       retries: 18
       start_period: 20s
 
-  # ------------------------------------------------------------- Trino ---
+    # ------------------------------------------------------------- Trino ---
   # Added in Lab 3: a second, independent query engine over the SAME tables.
-  # Behind a compose profile so Day 1 boots without it:
-  #   docker compose --profile lab3 up -d
+  # Boots with the rest of the stack so JDBC clients (PyCharm, DBeaver) can
+  # connect to localhost:8080 without a separate `--profile lab3` step.
   trino:
     image: trinodb/trino:455
     container_name: trino
-    profiles: ["lab3"]
     ports:
       - "8080:8080"                  # Trino UI + JDBC/HTTP
     volumes:

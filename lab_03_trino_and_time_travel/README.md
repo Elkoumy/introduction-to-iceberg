@@ -4,31 +4,26 @@ Day 2 begins! In this lab a **second query engine (Trino)** reads the exact same
 Spark wrote — no copies, no sync — and you use Iceberg's snapshot history to **time travel** and
 **roll back** a bad write.
 
-## 1. Update the stack (Trino joins the party)
+## 1. Confirm Trino is up
 
-The shared Docker environment already defines a `trino` service behind the `lab3` compose
-profile — today is the day you switch it on. From the repo root:
+Trino boots with the rest of the stack (no profile flag needed), so if your Day 1 environment is
+still running you're already good. From the repo root:
 
 ```bash
 cd lab_01_environment_setup/docker
-docker compose --profile lab3 up -d
+docker compose ps
 ```
 
-(The Trino image is pulled automatically on first run. Trino's JVM wants ~1–2 GB — if you set
-Docker Desktop's memory near the 6 GB minimum for Day 1, bump it to **8 GB** now. Port **8080**
-must be free.)
-
-Verify — you should now also see `trino` as `Up (healthy)` (it takes ~30–60 s to pass its
-healthcheck):
+You should see `trino` as `Up (healthy)`. If it's missing (e.g. you stopped the stack overnight),
+bring everything back with:
 
 ```bash
-docker compose --profile lab3 ps
+docker compose up -d
 ```
 
-> From now on, include `--profile lab3` in your `docker compose` commands (`ps`, `down`, `up`) so
-> they cover Trino too.
+Trino takes ~30–60 s to pass its healthcheck on first boot.
 
-| New UI | URL | Login |
+| UI | URL | Login |
 |---|---|---|
 | **Trino Web UI** | <http://localhost:8080/ui/> | any username (e.g. `student`), no password |
 
@@ -65,9 +60,9 @@ You'll practice:
 
 | Symptom | Fix |
 |---|---|
-| `trino` container missing | You forgot the profile flag — re-run step 1 with `--profile lab3` |
+| `trino` container missing | `docker compose up -d` from `lab_01_environment_setup/docker` — Trino boots with the rest of the stack |
 | Trino `Up (health: starting)` for a while | Normal on first boot (~30–60 s); wait for `healthy` |
 | Port 8080 already in use | Stop whatever holds it (`lsof -i :8080`) or change Trino's host port in `docker-compose.yml` |
-| `ModuleNotFoundError: No module named 'trino'` in Jupyter | Your Jupyter image predates this course version — `docker compose build spark-jupyter && docker compose --profile lab3 up -d`, then restart the kernel |
+| `ModuleNotFoundError: No module named 'trino'` in Jupyter | Your Jupyter image predates this course version — `docker compose build spark-jupyter && docker compose up -d`, then restart the kernel |
 | Notebook says fewer than 2 snapshots | Re-run the checkpoint script (step 2) |
 | Trino query fails with `Schema 'db' does not exist` | Run the checkpoint script — it creates the schema/table |

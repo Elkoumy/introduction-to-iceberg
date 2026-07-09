@@ -8,16 +8,17 @@ create your first Apache Iceberg table.
 | Service | Image | Ports | Purpose |
 |---|---|---|---|
 | **MinIO** | `minio/minio` | 9000 (S3 API), 9001 (console) | S3-compatible object storage; holds the `warehouse` bucket |
-| **PostgreSQL** | `postgres:16.3` | 5432 | Backing DB for the metastore (`metastore`) + OLTP source for Lab 2 (`source_db`) |
+| **PostgreSQL** | `postgres:16` | 5432 | Backing DB for the metastore (`metastore`) + OLTP source for Lab 2 (`source_db`) |
 | **Hive Metastore** | `apache/hive:3.1.3` (custom) | 9083 | The Iceberg **catalog** |
 | **Spark + Jupyter** | `jupyter/pyspark-notebook:spark-3.5.0` (custom) | 8888 (Jupyter), 4040 (Spark UI) | Compute + your notebooks |
+| **Trino** | `trinodb/trino:455` | 8080 (Web UI + JDBC/HTTP) | Second query engine used in Lab 3 (boots with the stack; JDBC clients can connect from Day 1) |
 
 All credentials in this lab are `admin` / `password`.
 
 ## Prerequisites
 
-- Docker Desktop (or Docker Engine + Compose v2) running, with **≥ 6 GB RAM** allocated
-- Ports **9000, 9001, 5432, 9083, 8888, 4040** free on your machine
+- Docker Desktop (or Docker Engine + Compose v2) running, with **≥ 8 GB RAM** allocated (Trino's JVM adds ~1–2 GB to the Day 1 footprint)
+- Ports **9000, 9001, 5432, 9083, 8080, 8888, 4040** free on your machine
 - ~6 GB of free disk (images + JARs)
 
 ## 1. Start the stack
@@ -49,11 +50,13 @@ minio            ...   Up (healthy)
 minio-init       ...   Exited (0)
 postgres         ...   Up (healthy)
 spark-jupyter    ...   Up
+trino            ...   Up (healthy)
 ```
 
 `minio-init` is a one-shot job — it creates the `warehouse` bucket and exits; `Exited (0)` is
-normal. (A sixth service, **Trino**, joins the stack in Lab 3 via a compose profile — don't worry
-about it today.) To watch the boot logs live:
+normal. Trino takes ~30–60 s to pass its healthcheck on the first boot — you don't use it until
+Lab 3, but it's already reachable at <http://localhost:8080> from Day 1 if you want to point a
+JDBC client at it. To watch the boot logs live:
 
 ```bash
 docker compose logs -f hive-metastore
@@ -66,6 +69,7 @@ docker compose logs -f hive-metastore
 | **Jupyter** | <http://localhost:8888> | none (token disabled for the lab) |
 | **MinIO console** | <http://localhost:9001> | `admin` / `password` |
 | **Spark UI** | <http://localhost:4040> | appears once a Spark session is running |
+| **Trino Web UI** | <http://localhost:8080/ui/> | any username (e.g. `student`), no password |
 
 In MinIO you should already see the (empty) **`warehouse`** bucket under *Object Browser*.
 
@@ -100,9 +104,6 @@ behavior is identical. PySpark starts a local JVM, so you also need **Java 17** 
 ## Stopping
 
 ```bash
-docker compose --profile lab3 down        # stop, keep data (tables survive)
-docker compose --profile lab3 down -v     # stop AND wipe MinIO + PostgreSQL volumes
+docker compose down        # stop, keep data (tables survive)
+docker compose down -v     # stop AND wipe MinIO + PostgreSQL volumes
 ```
-
-(The `--profile lab3` flag also stops Trino if you've started it in Lab 3; it's harmless before
-that.)
