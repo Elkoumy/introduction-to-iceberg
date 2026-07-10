@@ -23,6 +23,12 @@ directory):
 docker exec -i postgres psql -U admin -d source_db < data/seed_source_data.sql
 ```
 
+On Windows PowerShell, `<` is not an input-redirection operator — pipe the file in instead:
+
+```powershell
+Get-Content data/seed_source_data.sql | docker exec -i postgres psql -U admin -d source_db
+```
+
 Expected output ends with `INSERT 0 15`. Verify:
 
 ```bash
@@ -55,6 +61,7 @@ is saved on your machine.
 | Symptom | Fix |
 |---|---|
 | `relation "source_orders" does not exist` | You skipped step 1 — run the seed command |
+| `The '<' operator is reserved for future use` | You're in PowerShell — use the `Get-Content ... \|` form of the seed command |
 | `Connection refused` on JDBC read | `docker compose ps` in the Lab 1 folder; Postgres must be `Up (healthy)` |
 | Notebook not visible in Jupyter | Recreate the container so the mount appears: `cd ../lab_01_environment_setup/docker && docker compose up -d spark-jupyter` |
 | Want to restart the lab from scratch | Re-run the seed script; the notebook's first table cell drops and recreates the Iceberg table |

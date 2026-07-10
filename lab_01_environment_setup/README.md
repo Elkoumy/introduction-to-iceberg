@@ -96,7 +96,7 @@ behavior is identical. PySpark starts a local JVM, so you also need **Java 17** 
 
 | Symptom | Fix |
 |---|---|
-| A port is already in use | Stop whatever holds it (`lsof -i :8888`) or change the host-side port in `docker-compose.yml` |
+| A port is already in use | Stop whatever holds it (`lsof -i :8888`; PowerShell: `Get-NetTCPConnection -LocalPort 8888 -State Listen`) or change the host-side port in `docker-compose.yml` |
 | `hive-metastore` keeps restarting | `docker compose logs hive-metastore`; most often PostgreSQL wasn't healthy yet — `docker compose up -d` again |
 | Notebook can't reach the metastore | Confirm `docker compose ps` shows `hive-metastore (healthy)`, then restart the notebook kernel |
 | Want a 100 % clean slate | `docker compose down -v` (**deletes all table data and the metastore**), then `up -d` again |

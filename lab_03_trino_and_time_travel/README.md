@@ -40,6 +40,13 @@ docker exec spark-jupyter bash -c \
    python3 /home/jovyan/scripts/lab_03/day2_starter_checkpoint.py'
 ```
 
+On Windows PowerShell, `\` is not a line-continuation character (PowerShell uses a backtick), so
+run it as a single line — the single quotes keep `&&` from being parsed by PowerShell:
+
+```powershell
+docker exec spark-jupyter bash -c 'source /usr/local/bin/before-notebook.d/spark-config.sh && python3 /home/jovyan/scripts/lab_03/day2_starter_checkpoint.py'
+```
+
 Expected output ends with `Checkpoint complete — environment at end-of-Lab-2 state`.
 
 ## 3. Do the lab
@@ -62,7 +69,8 @@ You'll practice:
 |---|---|
 | `trino` container missing | `docker compose up -d` from `lab_01_environment_setup/docker` — Trino boots with the rest of the stack |
 | Trino `Up (health: starting)` for a while | Normal on first boot (~30–60 s); wait for `healthy` |
-| Port 8080 already in use | Stop whatever holds it (`lsof -i :8080`) or change Trino's host port in `docker-compose.yml` |
+| Port 8080 already in use | Stop whatever holds it (`lsof -i :8080`; PowerShell: `Get-NetTCPConnection -LocalPort 8080 -State Listen`) or change Trino's host port in `docker-compose.yml` |
+| `The token '&&' is not a valid statement separator` | You're in PowerShell and the `\` line breaks were pasted — use the single-line `docker exec` form in step 2 |
 | `ModuleNotFoundError: No module named 'trino'` in Jupyter | Your Jupyter image predates this course version — `docker compose build spark-jupyter && docker compose up -d`, then restart the kernel |
 | Notebook says fewer than 2 snapshots | Re-run the checkpoint script (step 2) |
 | Trino query fails with `Schema 'db' does not exist` | Run the checkpoint script — it creates the schema/table |
